@@ -282,7 +282,7 @@ pub const PrintContextOptions = struct {
                     for (source[first_line_offset..span.offset], first_line_offset..) |ch, offset| {
                         if (ch == '\n') {
                             line_number += 1;
-                            start_of_line = offset;
+                            start_of_line = offset + 1;
                             if (line_number > range.last) continue :span_loop;
                         }
                     }

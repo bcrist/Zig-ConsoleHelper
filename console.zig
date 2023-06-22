@@ -418,10 +418,11 @@ const LineRange = struct {
 const Line = struct {
     begin: usize,
     end: usize,
+    terminator_end: usize,
     num: usize,
 
     pub fn contains(self: Line, span: SourceSpan) bool {
-        if (span.offset >= self.end) return false;
+        if (span.offset >= self.terminator_end) return false;
         const span_end = span.offset + span.len;
         if (span_end <= self.begin) return false;
         return true;
@@ -436,6 +437,7 @@ const LineIterator = struct {
     pub fn next(self: *LineIterator) ?Line {
         var line = Line{
             .begin = self.offset orelse return null,
+            .terminator_end = undefined,
             .end = undefined,
             .num = self.line_number,
         };
@@ -444,13 +446,16 @@ const LineIterator = struct {
 
         if (std.mem.indexOfScalarPos(u8, self.source, line.begin, '\n')) |lf_offset| {
             line.end = lf_offset;
+            line.terminator_end = lf_offset + 1;
             self.offset = lf_offset + 1;
             if (lf_offset > line.begin and self.source[lf_offset - 1] == '\r') {
                 line.end -= 1;
+                line.terminator_end += 1;
             }
         } else {
             self.offset = null;
             line.end = self.source.len;
+            line.terminator_end = line.end;
         }
 
         return line;

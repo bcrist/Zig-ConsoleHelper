@@ -20,7 +20,11 @@ fn initWindowsOutputCodepage() !void {
     }
 }
 
-fn initWindowsConsole(handle: win.HANDLE, backup: *win.DWORD) !void {
+fn initWindowsConsole(handle: std.os.fd_t, backup: *win.DWORD) !void {
+    if (!std.os.isatty(handle)) {
+        return;
+    }
+
     var mode: win.DWORD = undefined;
     if (win.kernel32.GetConsoleMode(handle, &mode) == 0) {
         switch (win.kernel32.GetLastError()) {
@@ -235,10 +239,6 @@ pub const PrintContextOptions = struct {
         }
 
         if (maybe_range) |range| {
-            if (first_line_offset != 0) {
-                try print_writer.writeByte('\n');
-            }
-
             const line_number_width = std.math.log10_int(range.last) + 1;
 
             var next_line: ?Line = null;

@@ -268,7 +268,9 @@ pub const PrintContextOptions = struct {
                         span_line_end = line_style_buf.len;
                     }
 
-                    @memset(line_style_buf[span_line_begin..span_line_end], span.style);
+                    if (span_line_end > span_line_begin) {
+                        @memset(line_style_buf[span_line_begin..span_line_end], span.style);
+                    }
                 }
 
                 try printSourceLine(source, line, line_number_width, &line_style_buf, print_writer, options);

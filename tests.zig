@@ -7,7 +7,7 @@ pub fn main() !void {
 
     var out = std.io.getStdOut().writer();
 
-    try console.printContext(
+    try console.print_context(
         \\const std = @import("std");
         \\const console = @import("console.zig");
         \\

@@ -11,7 +11,7 @@ var original_output_codepage: win.UINT = 0;
 var original_stdout_mode: win.DWORD = 0;
 var original_stderr_mode: win.DWORD = 0;
 
-fn initWindowsOutputCodepage() !void {
+fn init_windows_output_codepage() !void {
     original_output_codepage = win.kernel32.GetConsoleOutputCP();
     if (SetConsoleOutputCP(CP_UTF8) == 0) {
         switch (win.kernel32.GetLastError()) {
@@ -20,7 +20,7 @@ fn initWindowsOutputCodepage() !void {
     }
 }
 
-fn initWindowsConsole(handle: std.os.fd_t, backup: *win.DWORD) !void {
+fn init_windows_console(handle: std.os.fd_t, backup: *win.DWORD) !void {
     if (!std.os.isatty(handle)) {
         return;
     }
@@ -42,9 +42,9 @@ fn initWindowsConsole(handle: std.os.fd_t, backup: *win.DWORD) !void {
 
 pub fn init() !void {
     if (builtin.os.tag == .windows) {
-        try initWindowsOutputCodepage();
-        try initWindowsConsole(std.io.getStdOut().handle, &original_stdout_mode);
-        try initWindowsConsole(std.io.getStdErr().handle, &original_stderr_mode);
+        try init_windows_output_codepage();
+        try init_windows_console(std.io.getStdOut().handle, &original_stdout_mode);
+        try init_windows_console(std.io.getStdErr().handle, &original_stderr_mode);
     }
 }
 
@@ -67,7 +67,7 @@ pub fn deinit() void {
 pub const Style = struct {
     fg: Color = .default,
     bg: Color = .default,
-    flags: FlagSet = .{},
+    flags: Flag_Set = .{},
 
     pub const Color = enum(u8) {
         black = 0,
@@ -89,20 +89,20 @@ pub const Style = struct {
         default,
     };
 
-    pub const FlagSet = std.EnumSet(Flag);
+    pub const Flag_Set = std.EnumSet(Flag);
     pub const Flag = enum {
         bold, italic, underline, reverse, hidden, strikethrough,
         // Support for these attributes is less common:
         dimmed, blinking, overline,
     };
 
-    pub fn withFlag(self: Style, flag: Flag) Style {
+    pub fn with_flag(self: Style, flag: Flag) Style {
         var s = self;
         s.flags.insert(flag);
         return s;
     }
 
-    pub fn withFlags(self: Style, flags: []const Flag) Style {
+    pub fn with_flags(self: Style, flags: []const Flag) Style {
         var s = self;
         for (flags) |flag| {
             s.flags.insert(flag);
@@ -172,21 +172,21 @@ var current_stderr_style : Style = .{};
 var current_stdout_style : Style = .{};
 
 // Note when using this function, the style must *only* be changed using this function.
-pub fn errStyle(style: Style) !void {
+pub fn err_style(style: Style) !void {
     if (std.meta.eql(style, current_stderr_style)) return;
     try style.apply(std.io.getStdErr());
     current_stderr_style = style;
 }
 
 // Note when using this function, the style must *only* be changed using this function.
-pub fn outStyle(style: Style) !void {
+pub fn out_style(style: Style) !void {
     if (std.meta.eql(style, current_stdout_style)) return;
     try style.apply(std.io.getStdOut());
     current_stdout_style = style;
 }
 
 
-pub const SourceSpan = struct {
+pub const Source_Span = struct {
     offset: usize,
     len: usize,
     style: Style = .{ .fg = .red },
@@ -196,7 +196,7 @@ pub const SourceSpan = struct {
     note_style: Style = .{ .fg = .red },
 };
 
-pub const PrintContextOptions = struct {
+pub const Print_Context_Options = struct {
     filename: ?[]const u8 = null,
     starting_line_number: usize = 1,
     min_omitted_lines: u8 = 3,
@@ -205,7 +205,7 @@ pub const PrintContextOptions = struct {
     line_number_style: ?Style = .{ .fg = .bright_black },
 };
 
- pub fn printContext(source: []const u8, spans: []const SourceSpan, print_writer: anytype, comptime max_source_line_width: usize, options: PrintContextOptions) !void {
+ pub fn print_context(source: []const u8, spans: []const Source_Span, print_writer: anytype, comptime max_source_line_width: usize, options: Print_Context_Options) !void {
 
     var min_offset: usize = source.len;
     var max_offset: usize = 0;
@@ -220,9 +220,9 @@ pub const PrintContextOptions = struct {
     var first_line = options.starting_line_number;
     var first_line_offset: usize = 0;
     while (true) {
-        var maybe_range: ?LineRange = null;
+        var maybe_range: ?Line_Range = null;
 
-        var line_iter = LineIterator{
+        var line_iter = Line_Iterator{
             .source = source,
             .offset = first_line_offset,
             .line_number = first_line,
@@ -234,7 +234,7 @@ pub const PrintContextOptions = struct {
             for (spans) |span| {
                 if (!line.contains(span)) continue;
 
-                maybe_range = LineRange.init(span, line.num, maybe_range, options);
+                maybe_range = Line_Range.init(span, line.num, maybe_range, options);
             }
         }
 
@@ -243,7 +243,7 @@ pub const PrintContextOptions = struct {
 
             var next_line: ?Line = null;
 
-            line_iter = LineIterator{
+            line_iter = Line_Iterator{
                 .source = source,
                 .offset = first_line_offset,
                 .line_number = first_line,
@@ -273,7 +273,7 @@ pub const PrintContextOptions = struct {
                     }
                 }
 
-                try printSourceLine(source, line, line_number_width, &line_style_buf, print_writer, options);
+                try print_source_line(source, line, line_number_width, &line_style_buf, print_writer, options);
             }
 
             span_loop: for (spans) |span| {
@@ -289,7 +289,7 @@ pub const PrintContextOptions = struct {
                         }
                     }
 
-                    try printNote(line_number, line_number_width, start_of_line, span, print_writer, options);
+                    try print_note(line_number, line_number_width, start_of_line, span, print_writer, options);
                 }
             }
 
@@ -303,7 +303,7 @@ pub const PrintContextOptions = struct {
     }
 }
 
-pub fn printNote(line_number: usize, line_number_width: u8, start_of_line: usize, span: SourceSpan, writer: anytype, options: PrintContextOptions) !void {
+pub fn print_note(line_number: usize, line_number_width: u8, start_of_line: usize, span: Source_Span, writer: anytype, options: Print_Context_Options) !void {
     if (options.enable_styling) {
         try span.note_style.apply(writer);
     }
@@ -313,7 +313,7 @@ pub fn printNote(line_number: usize, line_number_width: u8, start_of_line: usize
     const column_number = 1 + span.offset - start_of_line;
 
     const note = span.note.?;
-    var iter = LineIterator{
+    var iter = Line_Iterator{
         .source = note,
         .offset = 0,
         .line_number = 1,
@@ -340,7 +340,7 @@ pub fn printNote(line_number: usize, line_number_width: u8, start_of_line: usize
     }
 }
 
-pub fn printSourceLine(source: []const u8, line: Line, line_number_width: u8, line_style_buf: []const Style, writer: anytype, options: PrintContextOptions) !void {
+pub fn print_source_line(source: []const u8, line: Line, line_number_width: u8, line_style_buf: []const Style, writer: anytype, options: Print_Context_Options) !void {
     if (options.line_number_style) |style| {
         var line_number_buf: [16]u8 = undefined;
         const line_number = std.fmt.bufPrintIntToSlice(&line_number_buf, line.num, 10, .upper, .{ .width = line_number_width });
@@ -390,12 +390,12 @@ pub fn printSourceLine(source: []const u8, line: Line, line_number_width: u8, li
     try writer.writeByte('\n');
 }
 
-const LineRange = struct {
+const Line_Range = struct {
     first: usize,
     last: usize,
 
-    pub fn init(span: SourceSpan, line_number: usize, maybe_merge_range: ?LineRange, options: PrintContextOptions) LineRange {
-        var range = LineRange{
+    pub fn init(span: Source_Span, line_number: usize, maybe_merge_range: ?Line_Range, options: Print_Context_Options) Line_Range {
+        var range = Line_Range{
             .first = options.starting_line_number,
             .last = line_number + span.context_lines_below,
         };
@@ -423,7 +423,7 @@ const Line = struct {
     terminator_end: usize,
     num: usize,
 
-    pub fn contains(self: Line, span: SourceSpan) bool {
+    pub fn contains(self: Line, span: Source_Span) bool {
         if (span.offset >= self.terminator_end) return false;
         const span_end = span.offset + span.len;
         if (span_end <= self.begin) return false;
@@ -431,12 +431,12 @@ const Line = struct {
     }
 };
 
-const LineIterator = struct {
+const Line_Iterator = struct {
     source: []const u8,
     offset: ?usize,
     line_number: usize,
 
-    pub fn next(self: *LineIterator) ?Line {
+    pub fn next(self: *Line_Iterator) ?Line {
         var line = Line{
             .begin = self.offset orelse return null,
             .terminator_end = undefined,

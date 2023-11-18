@@ -1,5 +1,9 @@
 .{
     .name = "Zig-ConsoleHelper",
-    .version = "0.2.5",
+    .version = "0.3.0",
     .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "console.zig",
+    },
 }

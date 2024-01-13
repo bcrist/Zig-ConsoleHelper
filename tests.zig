@@ -5,7 +5,7 @@ pub fn main() !void {
     try console.init();
     defer console.deinit();
 
-    var out = std.io.getStdOut().writer();
+    const out = std.io.getStdOut().writer();
 
     try console.print_context(
         \\const std = @import("std");

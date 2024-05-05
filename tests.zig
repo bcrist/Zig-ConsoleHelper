@@ -35,7 +35,7 @@ pub fn main() !void {
         , &.{
             .{ .offset = 6, .len = 3, .note = "Notes can have \nmultiple lines" },
             .{ .offset = 13, .len = 6, .note = "I am another note",
-                .style = (console.Style{ .fg = .green }).withFlag(.underline),
+                .style = (console.Style{ .fg = .green }).with_flag(.underline),
                 .note_style = .{ .fg = .green },
             },
             .{ .offset = 52, .len = 13 },

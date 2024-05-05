@@ -8,7 +8,8 @@ pub fn build(b: *std.Build) void {
         .root_source_file = .{ .path = "console.zig" },
     });
 
-    const tests = b.addTest(.{
+    const tests = b.addExecutable(.{
+        .name = "test",
         .root_source_file = .{ .path = "tests.zig"},
         .target = target,
         .optimize = mode,

@@ -20,8 +20,8 @@ fn init_windows_output_codepage() !void {
     }
 }
 
-fn init_windows_console(handle: std.os.fd_t, backup: *win.DWORD) !void {
-    if (!std.os.isatty(handle)) {
+fn init_windows_console(handle: std.posix.fd_t, backup: *win.DWORD) !void {
+    if (!std.posix.isatty(handle)) {
         return;
     }
 
@@ -50,11 +50,11 @@ pub fn init() !void {
 
 pub fn deinit() void {
     const out = std.io.getStdOut();
-    if (std.os.isatty(out.handle)) {
+    if (std.posix.isatty(out.handle)) {
         (Style{}).apply(out) catch {};
     }
     const err = std.io.getStdOut();
-    if (std.os.isatty(err.handle)) {
+    if (std.posix.isatty(err.handle)) {
         (Style{}).apply(err) catch {};
     }
     if (builtin.os.tag == .windows) {

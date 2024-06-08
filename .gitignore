@@ -1,6 +1,4 @@
-_*
-
-**/zig-cache/
-**/zig-out/
-
-**/.vscode/
+.zig-cache/
+zig-cache/
+zig-out/
+.vscode/

@@ -5,12 +5,12 @@ pub fn build(b: *std.Build) void {
     const mode = b.standardOptimizeOption(.{});
 
     _ = b.addModule("console", .{
-        .root_source_file = .{ .path = "console.zig" },
+        .root_source_file = b.path("console.zig"),
     });
 
     const tests = b.addExecutable(.{
         .name = "test",
-        .root_source_file = .{ .path = "tests.zig"},
+        .root_source_file = b.path("tests.zig"),
         .target = target,
         .optimize = mode,
     });

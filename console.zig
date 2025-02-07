@@ -203,16 +203,20 @@ pub const Print_Context_Options = struct {
     enable_styling: bool = true,
     source_style: Style = .{},
     line_number_style: ?Style = .{ .fg = .bright_black },
+    reset_style: ?Style = .{},
 };
 
  pub fn print_context(source: []const u8, spans: []const Source_Span, print_writer: anytype, comptime max_source_line_width: usize, options: Print_Context_Options) !void {
-
+    defer if (options.reset_style) |style| {
+        style.apply(print_writer) catch {};
+    };
+    
     var min_offset: usize = source.len;
     var max_offset: usize = 0;
 
     for (spans) |span| {
         const first = span.offset;
-        const last = first + span.len - 1;
+        const last = first + @max(1, span.len) - 1;
         if (first < min_offset) min_offset = first;
         if (last > max_offset) max_offset = last;
     }
@@ -424,7 +428,9 @@ const Line = struct {
     num: usize,
 
     pub fn contains(self: Line, span: Source_Span) bool {
-        if (span.offset >= self.terminator_end) return false;
+        if (span.offset >= self.terminator_end) {
+            return self.end == self.terminator_end;
+        }
         const span_end = span.offset + span.len;
         if (span_end <= self.begin) return false;
         return true;

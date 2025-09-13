@@ -10,12 +10,11 @@ pub fn build(b: *std.Build) void {
 
     const tests = b.addExecutable(.{
         .name = "test",
-        .root_source_file = b.path("tests.zig"),
-        .target = target,
-        .optimize = mode,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tests.zig"),
+            .target = target,
+            .optimize = mode,
+        }),
     });
-    const run_tests = b.addRunArtifact(tests);
-
-    const test_step = b.step("test", "Run all tests");
-    test_step.dependOn(&run_tests.step);
+    b.step("test", "Run all tests").dependOn(&b.addRunArtifact(tests).step);
 }

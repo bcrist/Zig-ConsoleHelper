@@ -2,9 +2,9 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const win = std.os.windows;
-extern "kernel32" fn SetConsoleMode(in_hConsoleHandle: win.HANDLE, in_dwMode: win.DWORD) callconv(win.WINAPI) win.BOOL;
+extern "kernel32" fn SetConsoleMode(in_hConsoleHandle: win.HANDLE, in_dwMode: win.DWORD) callconv(.winapi) win.BOOL;
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING : win.DWORD = 0x0004;
-extern "kernel32" fn SetConsoleOutputCP(in_wCodePageID: win.UINT) callconv(win.WINAPI) win.BOOL;
+extern "kernel32" fn SetConsoleOutputCP(in_wCodePageID: win.UINT) callconv(.winapi) win.BOOL;
 const CP_UTF8: win.UINT = 65001;
 
 var original_output_codepage: win.UINT = 0;
@@ -43,19 +43,25 @@ fn init_windows_console(handle: std.posix.fd_t, backup: *win.DWORD) !void {
 pub fn init() !void {
     if (builtin.os.tag == .windows) {
         try init_windows_output_codepage();
-        try init_windows_console(std.io.getStdOut().handle, &original_stdout_mode);
-        try init_windows_console(std.io.getStdErr().handle, &original_stderr_mode);
+        try init_windows_console(std.fs.File.stdout().handle, &original_stdout_mode);
+        try init_windows_console(std.fs.File.stderr().handle, &original_stderr_mode);
     }
 }
 
 pub fn deinit() void {
-    const out = std.io.getStdOut();
+    const out = std.fs.File.stdout();
     if (std.posix.isatty(out.handle)) {
-        (Style{}).apply(out) catch {};
+        var buf: [64]u8 = undefined;
+        var w = out.writer(&buf);
+        (Style{}).apply(&w.interface) catch {};
+        w.interface.flush() catch {};
     }
-    const err = std.io.getStdOut();
+    const err = std.fs.File.stderr();
     if (std.posix.isatty(err.handle)) {
-        (Style{}).apply(err) catch {};
+        var buf: [64]u8 = undefined;
+        var w = err.writer(&buf);
+        (Style{}).apply(&w.interface) catch {};
+        w.interface.flush() catch {};
     }
     if (builtin.os.tag == .windows) {
         _ = SetConsoleOutputCP(original_output_codepage);
@@ -110,61 +116,56 @@ pub const Style = struct {
         return s;
     }
 
-    pub fn apply(self: Style, writer: anytype) !void {
-        var buf: [32]u8 = undefined;
-        var stream = std.io.fixedBufferStream(&buf);
-        var sw = stream.writer();
-        try sw.writeAll("\x1B[0");
-        if (self.flags.contains(.bold)) try sw.writeAll(";1");
-        if (self.flags.contains(.dimmed)) try sw.writeAll(";2");
-        if (self.flags.contains(.italic)) try sw.writeAll(";3");
-        if (self.flags.contains(.underline)) try sw.writeAll(";4");
-        if (self.flags.contains(.blinking)) try sw.writeAll(";5");
-        if (self.flags.contains(.reverse)) try sw.writeAll(";7");
-        if (self.flags.contains(.hidden)) try sw.writeAll(";8");
-        if (self.flags.contains(.strikethrough)) try sw.writeAll(";9");
-        if (self.flags.contains(.overline)) try sw.writeAll(";53");
+    pub fn apply(self: Style, writer: *std.io.Writer) !void {
+        try writer.writeAll("\x1B[0");
+        if (self.flags.contains(.bold)) try writer.writeAll(";1");
+        if (self.flags.contains(.dimmed)) try writer.writeAll(";2");
+        if (self.flags.contains(.italic)) try writer.writeAll(";3");
+        if (self.flags.contains(.underline)) try writer.writeAll(";4");
+        if (self.flags.contains(.blinking)) try writer.writeAll(";5");
+        if (self.flags.contains(.reverse)) try writer.writeAll(";7");
+        if (self.flags.contains(.hidden)) try writer.writeAll(";8");
+        if (self.flags.contains(.strikethrough)) try writer.writeAll(";9");
+        if (self.flags.contains(.overline)) try writer.writeAll(";53");
         switch (self.fg) {
-            .black => try sw.writeAll(";30"),
-            .red => try sw.writeAll(";31"),
-            .green => try sw.writeAll(";32"),
-            .yellow => try sw.writeAll(";33"),
-            .blue => try sw.writeAll(";34"),
-            .magenta => try sw.writeAll(";35"),
-            .cyan => try sw.writeAll(";36"),
-            .white => try sw.writeAll(";37"),
-            .bright_black => try sw.writeAll(";90"),
-            .bright_red => try sw.writeAll(";91"),
-            .bright_green => try sw.writeAll(";92"),
-            .bright_yellow => try sw.writeAll(";93"),
-            .bright_blue => try sw.writeAll(";94"),
-            .bright_magenta => try sw.writeAll(";95"),
-            .bright_cyan => try sw.writeAll(";96"),
-            .bright_white => try sw.writeAll(";97"),
+            .black => try writer.writeAll(";30"),
+            .red => try writer.writeAll(";31"),
+            .green => try writer.writeAll(";32"),
+            .yellow => try writer.writeAll(";33"),
+            .blue => try writer.writeAll(";34"),
+            .magenta => try writer.writeAll(";35"),
+            .cyan => try writer.writeAll(";36"),
+            .white => try writer.writeAll(";37"),
+            .bright_black => try writer.writeAll(";90"),
+            .bright_red => try writer.writeAll(";91"),
+            .bright_green => try writer.writeAll(";92"),
+            .bright_yellow => try writer.writeAll(";93"),
+            .bright_blue => try writer.writeAll(";94"),
+            .bright_magenta => try writer.writeAll(";95"),
+            .bright_cyan => try writer.writeAll(";96"),
+            .bright_white => try writer.writeAll(";97"),
             .default => {},
         }
         switch (self.bg) {
-            .black => try sw.writeAll(";40"),
-            .red => try sw.writeAll(";41"),
-            .green => try sw.writeAll(";42"),
-            .yellow => try sw.writeAll(";43"),
-            .blue => try sw.writeAll(";44"),
-            .magenta => try sw.writeAll(";45"),
-            .cyan => try sw.writeAll(";46"),
-            .white => try sw.writeAll(";47"),
-            .bright_black => try sw.writeAll(";100"),
-            .bright_red => try sw.writeAll(";101"),
-            .bright_green => try sw.writeAll(";102"),
-            .bright_yellow => try sw.writeAll(";103"),
-            .bright_blue => try sw.writeAll(";104"),
-            .bright_magenta => try sw.writeAll(";105"),
-            .bright_cyan => try sw.writeAll(";106"),
-            .bright_white => try sw.writeAll(";107"),
+            .black => try writer.writeAll(";40"),
+            .red => try writer.writeAll(";41"),
+            .green => try writer.writeAll(";42"),
+            .yellow => try writer.writeAll(";43"),
+            .blue => try writer.writeAll(";44"),
+            .magenta => try writer.writeAll(";45"),
+            .cyan => try writer.writeAll(";46"),
+            .white => try writer.writeAll(";47"),
+            .bright_black => try writer.writeAll(";100"),
+            .bright_red => try writer.writeAll(";101"),
+            .bright_green => try writer.writeAll(";102"),
+            .bright_yellow => try writer.writeAll(";103"),
+            .bright_blue => try writer.writeAll(";104"),
+            .bright_magenta => try writer.writeAll(";105"),
+            .bright_cyan => try writer.writeAll(";106"),
+            .bright_white => try writer.writeAll(";107"),
             .default => {},
         }
-        try sw.writeAll("m");
-
-        try writer.writeAll(stream.getWritten());
+        try writer.writeByte('m');
     }
 };
 
@@ -206,9 +207,9 @@ pub const Print_Context_Options = struct {
     reset_style: ?Style = .{},
 };
 
- pub fn print_context(source: []const u8, spans: []const Source_Span, print_writer: anytype, comptime max_source_line_width: usize, options: Print_Context_Options) !void {
+ pub fn print_context(source: []const u8, spans: []const Source_Span, writer: *std.io.Writer, comptime max_source_line_width: usize, options: Print_Context_Options) !void {
     defer if (options.reset_style) |style| {
-        style.apply(print_writer) catch {};
+        style.apply(writer) catch {};
     };
     
     var min_offset: usize = source.len;
@@ -277,7 +278,7 @@ pub const Print_Context_Options = struct {
                     }
                 }
 
-                try print_source_line(source, line, line_number_width, &line_style_buf, print_writer, options);
+                try print_source_line(source, line, line_number_width, &line_style_buf, writer, options);
             }
 
             span_loop: for (spans) |span| {
@@ -293,7 +294,7 @@ pub const Print_Context_Options = struct {
                         }
                     }
 
-                    try print_note(line_number, line_number_width, start_of_line, span, print_writer, options);
+                    try print_note(line_number, line_number_width, start_of_line, span, writer, options);
                 }
             }
 
@@ -307,12 +308,15 @@ pub const Print_Context_Options = struct {
     }
 }
 
-pub fn print_note(line_number: usize, line_number_width: u8, start_of_line: usize, span: Source_Span, writer: anytype, options: Print_Context_Options) !void {
+pub fn print_note(line_number: usize, line_number_width: u8, start_of_line: usize, span: Source_Span, writer: *std.io.Writer, options: Print_Context_Options) !void {
+    var line_number_buf: [16]u8 = undefined;
+    var line_number_writer = std.io.Writer.fixed(&line_number_buf);
+    try line_number_writer.print("{d}", .{ line_number });
+    const line_number_text = line_number_writer.buffered();
+
     if (options.enable_styling) {
         try span.note_style.apply(writer);
     }
-    var line_number_buf: [16]u8 = undefined;
-    const line_number_text = std.fmt.bufPrintIntToSlice(&line_number_buf, line_number, 10, .upper, .{});
 
     const column_number = 1 + span.offset - start_of_line;
 
@@ -325,7 +329,7 @@ pub fn print_note(line_number: usize, line_number_width: u8, start_of_line: usiz
     while (iter.next()) |line| {
         if (line.num == 1) {
             if (line_number_text.len < line_number_width) {
-                try writer.writeByteNTimes(' ', line_number_width - line_number_text.len);
+                try writer.splatByteAll(' ', line_number_width - line_number_text.len);
             }
 
             if (options.filename) |filename| {
@@ -335,22 +339,30 @@ pub fn print_note(line_number: usize, line_number_width: u8, start_of_line: usiz
             try writer.print("{s}:{:<3}  {s}\n", .{ line_number_text, column_number, note[line.begin..line.end] });
         } else {
             if (options.filename) |filename| {
-                try writer.writeByteNTimes(' ', filename.len + 1);
+                try writer.splatByteAll(' ', filename.len + 1);
             }
-            try writer.writeByteNTimes(' ', line_number_width + 6);
+            try writer.splatByteAll(' ', line_number_width + 6);
             try writer.writeAll(note[line.begin..line.end]);
             try writer.writeByte('\n');
         }
     }
 }
 
-pub fn print_source_line(source: []const u8, line: Line, line_number_width: u8, line_style_buf: []const Style, writer: anytype, options: Print_Context_Options) !void {
+pub fn print_source_line(source: []const u8, line: Line, line_number_width: u8, line_style_buf: []const Style, writer: *std.io.Writer, options: Print_Context_Options) !void {
     if (options.line_number_style) |style| {
         var line_number_buf: [16]u8 = undefined;
-        const line_number = std.fmt.bufPrintIntToSlice(&line_number_buf, line.num, 10, .upper, .{ .width = line_number_width });
+        var line_number_writer = std.io.Writer.fixed(&line_number_buf);
+        try line_number_writer.print("{d}", .{ line.num });
+        const line_number = line_number_writer.buffered();
+
         if (options.enable_styling) {
             try style.apply(writer);
         }
+
+        if (line_number.len < line_number_width) {
+            try writer.splatByteAll(' ', line_number_width - line_number.len);
+        }
+
         try writer.writeAll(line_number);
         try writer.writeAll(" |");
     }

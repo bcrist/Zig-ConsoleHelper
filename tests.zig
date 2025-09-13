@@ -5,7 +5,8 @@ pub fn main() !void {
     try console.init();
     defer console.deinit();
 
-    const out = std.io.getStdOut().writer();
+    var buf: [1024]u8 = undefined;
+    var w = std.fs.File.stdout().writer(&buf);
 
     try console.print_context(
         \\const std = @import("std");
@@ -40,7 +41,7 @@ pub fn main() !void {
             },
             .{ .offset = 52, .len = 13 },
             .{ .offset = 200, .len = 170, .note = "Spans can cross lines", .context_lines_above = 1, .context_lines_below = 1 },
-        }, out, 150, .{ .filename = "tests.zig" }
+        }, &w.interface, 150, .{ .filename = "tests.zig" }
     );
-
+    try w.interface.flush();
 }

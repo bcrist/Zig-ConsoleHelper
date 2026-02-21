@@ -1,12 +1,13 @@
 .{
     .name = .console_helper,
     .fingerprint = 0x4fff97651338d8d7,
-    .version = "0.3.1",
-    .minimum_zig_version = "0.15.1",
+    .version = "0.4.0",
+    .minimum_zig_version = "0.16.0-dev.2626+0e3c6514a",
     .dependencies = .{},
     .paths = .{
         "build.zig",
         "build.zig.zon",
         "console.zig",
+        "license",
     },
 }

@@ -2,7 +2,7 @@
     .name = .console_helper,
     .fingerprint = 0x4fff97651338d8d7,
     .version = "0.4.0",
-    .minimum_zig_version = "0.16.0-dev.2626+0e3c6514a",
+    .minimum_zig_version = "0.16.0",
     .dependencies = .{},
     .paths = .{
         "build.zig",

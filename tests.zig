@@ -1,12 +1,12 @@
 const std = @import("std");
 const console = @import("console.zig");
 
-pub fn main() !void {
-    try console.init();
-    defer console.deinit();
+pub fn main(init: std.process.Init) !void {
+    try console.init(init.io);
+    defer console.deinit(init.io);
 
     var buf: [1024]u8 = undefined;
-    var w = std.fs.File.stdout().writer(&buf);
+    var w = std.Io.File.stdout().writer(init.io, &buf);
 
     try console.print_context(
         \\const std = @import("std");
@@ -20,12 +20,14 @@ pub fn main() !void {
         \\
         \\
         \\
-        \\  
-        \\    var out = std.io.getStdOut().writer();
+        \\
+        \\
+        \\    var out = std.Io.getStdOut().writer();
         \\
         \\    try console.outStyle(console.Style{  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         \\        .fg = .red,
         \\    });
+        \\    var whatever = "∫";
         \\}
         \\
         \\asdf
@@ -40,7 +42,14 @@ pub fn main() !void {
                 .note_style = .{ .fg = .green },
             },
             .{ .offset = 52, .len = 13 },
-            .{ .offset = 200, .len = 170, .note = "Spans can cross lines", .context_lines_above = 1, .context_lines_below = 1 },
+            .{
+                .offset = 200,
+                .len = 170,
+                .note = "Spans can cross lines",
+                .context_lines_above = 1,
+                .context_lines_below = 3,
+                .style = (console.Style{ .bg = .red }).with_flag(.dimmed),
+            },
         }, &w.interface, 150, .{ .filename = "tests.zig" }
     );
     try w.interface.flush();

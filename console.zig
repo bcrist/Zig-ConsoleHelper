@@ -2,64 +2,69 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const win = std.os.windows;
+
+extern "kernel32" fn GetConsoleMode(console_handle: win.HANDLE, mode: *win.DWORD) callconv(.winapi) win.BOOL;
 extern "kernel32" fn SetConsoleMode(in_hConsoleHandle: win.HANDLE, in_dwMode: win.DWORD) callconv(.winapi) win.BOOL;
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING : win.DWORD = 0x0004;
+
+extern "kernel32" fn GetConsoleOutputCP() callconv(.winapi) win.UINT;
 extern "kernel32" fn SetConsoleOutputCP(in_wCodePageID: win.UINT) callconv(.winapi) win.BOOL;
 const CP_UTF8: win.UINT = 65001;
+
 
 var original_output_codepage: win.UINT = 0;
 var original_stdout_mode: win.DWORD = 0;
 var original_stderr_mode: win.DWORD = 0;
 
 fn init_windows_output_codepage() !void {
-    original_output_codepage = win.kernel32.GetConsoleOutputCP();
+    original_output_codepage = GetConsoleOutputCP();
     if (SetConsoleOutputCP(CP_UTF8) == 0) {
-        switch (win.kernel32.GetLastError()) {
+        switch (win.GetLastError()) {
             else => |err| return win.unexpectedError(err),
         }
     }
 }
 
-fn init_windows_console(handle: std.posix.fd_t, backup: *win.DWORD) !void {
-    if (!std.posix.isatty(handle)) {
+fn init_windows_console(io: std.Io, stream: std.Io.File, backup: *win.DWORD) !void {
+    if (!try stream.isTty(io)) {
         return;
     }
 
     var mode: win.DWORD = undefined;
-    if (win.kernel32.GetConsoleMode(handle, &mode) == 0) {
-        switch (win.kernel32.GetLastError()) {
+    if (GetConsoleMode(stream.handle, &mode) == 0) {
+        switch (win.GetLastError()) {
             else => |err| return win.unexpectedError(err),
         }
     }
     backup.* = mode;
     mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    if (SetConsoleMode(handle, mode) == 0) {
-        switch (win.kernel32.GetLastError()) {
+    if (SetConsoleMode(stream.handle, mode) == 0) {
+        switch (win.GetLastError()) {
             else => |err| return win.unexpectedError(err),
         }
     }
 }
 
-pub fn init() !void {
+pub fn init(io: std.Io) !void {
     if (builtin.os.tag == .windows) {
         try init_windows_output_codepage();
-        try init_windows_console(std.fs.File.stdout().handle, &original_stdout_mode);
-        try init_windows_console(std.fs.File.stderr().handle, &original_stderr_mode);
+        try init_windows_console(io, std.Io.File.stdout(), &original_stdout_mode);
+        try init_windows_console(io, std.Io.File.stderr(), &original_stderr_mode);
     }
 }
 
-pub fn deinit() void {
-    const out = std.fs.File.stdout();
-    if (std.posix.isatty(out.handle)) {
+pub fn deinit(io: std.Io) void {
+    const out = std.Io.File.stdout();
+    if (out.isTty(io) catch false) {
         var buf: [64]u8 = undefined;
-        var w = out.writer(&buf);
+        var w = out.writer(io, &buf);
         (Style{}).apply(&w.interface) catch {};
         w.interface.flush() catch {};
     }
-    const err = std.fs.File.stderr();
-    if (std.posix.isatty(err.handle)) {
+    const err = std.Io.File.stderr();
+    if (err.isTty(io) catch false) {
         var buf: [64]u8 = undefined;
-        var w = err.writer(&buf);
+        var w = err.writer(io, &buf);
         (Style{}).apply(&w.interface) catch {};
         w.interface.flush() catch {};
     }
@@ -116,7 +121,7 @@ pub const Style = struct {
         return s;
     }
 
-    pub fn apply(self: Style, writer: *std.io.Writer) !void {
+    pub fn apply(self: Style, writer: *std.Io.Writer) !void {
         try writer.writeAll("\x1B[0");
         if (self.flags.contains(.bold)) try writer.writeAll(";1");
         if (self.flags.contains(.dimmed)) try writer.writeAll(";2");
@@ -175,14 +180,14 @@ var current_stdout_style : Style = .{};
 // Note when using this function, the style must *only* be changed using this function.
 pub fn err_style(style: Style) !void {
     if (std.meta.eql(style, current_stderr_style)) return;
-    try style.apply(std.io.getStdErr());
+    try style.apply(std.Io.getStdErr());
     current_stderr_style = style;
 }
 
 // Note when using this function, the style must *only* be changed using this function.
 pub fn out_style(style: Style) !void {
     if (std.meta.eql(style, current_stdout_style)) return;
-    try style.apply(std.io.getStdOut());
+    try style.apply(std.Io.getStdOut());
     current_stdout_style = style;
 }
 
@@ -207,7 +212,7 @@ pub const Print_Context_Options = struct {
     reset_style: ?Style = .{},
 };
 
- pub fn print_context(source: []const u8, spans: []const Source_Span, writer: *std.io.Writer, comptime max_source_line_width: usize, options: Print_Context_Options) !void {
+ pub fn print_context(source: []const u8, spans: []const Source_Span, writer: *std.Io.Writer, comptime max_source_line_width: usize, options: Print_Context_Options) !void {
     defer if (options.reset_style) |style| {
         style.apply(writer) catch {};
     };
@@ -308,9 +313,9 @@ pub const Print_Context_Options = struct {
     }
 }
 
-pub fn print_note(line_number: usize, line_number_width: u8, start_of_line: usize, span: Source_Span, writer: *std.io.Writer, options: Print_Context_Options) !void {
+pub fn print_note(line_number: usize, line_number_width: u8, start_of_line: usize, span: Source_Span, writer: *std.Io.Writer, options: Print_Context_Options) !void {
     var line_number_buf: [16]u8 = undefined;
-    var line_number_writer = std.io.Writer.fixed(&line_number_buf);
+    var line_number_writer = std.Io.Writer.fixed(&line_number_buf);
     try line_number_writer.print("{d}", .{ line_number });
     const line_number_text = line_number_writer.buffered();
 
@@ -348,10 +353,10 @@ pub fn print_note(line_number: usize, line_number_width: u8, start_of_line: usiz
     }
 }
 
-pub fn print_source_line(source: []const u8, line: Line, line_number_width: u8, line_style_buf: []const Style, writer: *std.io.Writer, options: Print_Context_Options) !void {
+pub fn print_source_line(source: []const u8, line: Line, line_number_width: u8, line_style_buf: []const Style, writer: *std.Io.Writer, options: Print_Context_Options) !void {
     if (options.line_number_style) |style| {
         var line_number_buf: [16]u8 = undefined;
-        var line_number_writer = std.io.Writer.fixed(&line_number_buf);
+        var line_number_writer = std.Io.Writer.fixed(&line_number_buf);
         try line_number_writer.print("{d}", .{ line.num });
         const line_number = line_number_writer.buffered();
 
@@ -364,7 +369,7 @@ pub fn print_source_line(source: []const u8, line: Line, line_number_width: u8, 
         }
 
         try writer.writeAll(line_number);
-        try writer.writeAll(" |");
+        try writer.writeAll(" │");
     }
 
     const text = source[line.begin..line.end];

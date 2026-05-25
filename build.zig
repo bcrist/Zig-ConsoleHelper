@@ -16,5 +16,6 @@ pub fn build(b: *std.Build) void {
             .optimize = mode,
         }),
     });
+    b.installArtifact(tests);
     b.step("test", "Run all tests").dependOn(&b.addRunArtifact(tests).step);
 }

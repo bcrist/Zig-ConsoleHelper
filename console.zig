@@ -18,7 +18,7 @@ var original_stderr_mode: win.DWORD = 0;
 
 fn init_windows_output_codepage() !void {
     original_output_codepage = GetConsoleOutputCP();
-    if (SetConsoleOutputCP(CP_UTF8) == 0) {
+    if (SetConsoleOutputCP(CP_UTF8) == .FALSE) {
         switch (win.GetLastError()) {
             else => |err| return win.unexpectedError(err),
         }
@@ -31,14 +31,14 @@ fn init_windows_console(io: std.Io, stream: std.Io.File, backup: *win.DWORD) !vo
     }
 
     var mode: win.DWORD = undefined;
-    if (GetConsoleMode(stream.handle, &mode) == 0) {
+    if (GetConsoleMode(stream.handle, &mode) == .FALSE) {
         switch (win.GetLastError()) {
             else => |err| return win.unexpectedError(err),
         }
     }
     backup.* = mode;
     mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    if (SetConsoleMode(stream.handle, mode) == 0) {
+    if (SetConsoleMode(stream.handle, mode) == .FALSE) {
         switch (win.GetLastError()) {
             else => |err| return win.unexpectedError(err),
         }

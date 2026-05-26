@@ -265,7 +265,7 @@ pub const Print_Context_Options = struct {
                     break;
                 }
 
-                var line_style_buf: [max_source_line_width]Style = .{ options.source_style } ** max_source_line_width;
+                var line_style_buf: [max_source_line_width]Style = @splat(options.source_style);
 
                 for (spans) |span| {
                     if (!line.contains(span)) continue;

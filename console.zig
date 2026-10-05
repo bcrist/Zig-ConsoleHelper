@@ -45,7 +45,7 @@ fn init_windows_console(io: std.Io, stream: std.Io.File, backup: *win.DWORD) !vo
 }
 
 pub fn init(io: std.Io) !void {
-    if (builtin.os.tag == .windows) {
+    if (builtin.target.os.tag == .windows) {
         try init_windows_output_codepage();
         try init_windows_console(io, std.Io.File.stdout(), &original_stdout_mode);
         try init_windows_console(io, std.Io.File.stderr(), &original_stderr_mode);
@@ -67,7 +67,7 @@ pub fn deinit(io: std.Io) void {
         (Style{}).apply(&w.interface) catch {};
         w.interface.flush() catch {};
     }
-    if (builtin.os.tag == .windows) {
+    if (builtin.target.os.tag == .windows) {
         _ = SetConsoleOutputCP(original_output_codepage);
         _ = SetConsoleMode(out.handle, original_stdout_mode);
         _ = SetConsoleMode(err.handle, original_stderr_mode);

@@ -5,12 +5,11 @@ const win = std.os.windows;
 
 extern "kernel32" fn GetConsoleMode(console_handle: win.HANDLE, mode: *win.DWORD) callconv(.winapi) win.BOOL;
 extern "kernel32" fn SetConsoleMode(in_hConsoleHandle: win.HANDLE, in_dwMode: win.DWORD) callconv(.winapi) win.BOOL;
-const ENABLE_VIRTUAL_TERMINAL_PROCESSING : win.DWORD = 0x0004;
+const ENABLE_VIRTUAL_TERMINAL_PROCESSING: win.DWORD = 0x0004;
 
 extern "kernel32" fn GetConsoleOutputCP() callconv(.winapi) win.UINT;
 extern "kernel32" fn SetConsoleOutputCP(in_wCodePageID: win.UINT) callconv(.winapi) win.BOOL;
 const CP_UTF8: win.UINT = 65001;
-
 
 var original_output_codepage: win.UINT = 0;
 var original_stdout_mode: win.DWORD = 0;
@@ -102,9 +101,16 @@ pub const Style = struct {
 
     pub const Flag_Set = std.EnumSet(Flag);
     pub const Flag = enum {
-        bold, italic, underline, reverse, hidden, strikethrough,
+        bold,
+        italic,
+        underline,
+        reverse,
+        hidden,
+        strikethrough,
         // Support for these attributes is less common:
-        dimmed, blinking, overline,
+        dimmed,
+        blinking,
+        overline,
     };
 
     pub fn with_flag(self: Style, flag: Flag) Style {
@@ -174,8 +180,8 @@ pub const Style = struct {
     }
 };
 
-var current_stderr_style : Style = .{};
-var current_stdout_style : Style = .{};
+var current_stderr_style: Style = .{};
+var current_stdout_style: Style = .{};
 
 // Note when using this function, the style must *only* be changed using this function.
 pub fn err_style(style: Style) !void {
@@ -190,7 +196,6 @@ pub fn out_style(style: Style) !void {
     try style.apply(std.Io.getStdOut());
     current_stdout_style = style;
 }
-
 
 pub const Source_Span = struct {
     offset: usize,
@@ -212,11 +217,11 @@ pub const Print_Context_Options = struct {
     reset_style: ?Style = .{},
 };
 
- pub fn print_context(source: []const u8, spans: []const Source_Span, writer: *std.Io.Writer, comptime max_source_line_width: usize, options: Print_Context_Options) !void {
+pub fn print_context(source: []const u8, spans: []const Source_Span, writer: *std.Io.Writer, comptime max_source_line_width: usize, options: Print_Context_Options) !void {
     defer if (options.reset_style) |style| {
         style.apply(writer) catch {};
     };
-    
+
     var min_offset: usize = source.len;
     var max_offset: usize = 0;
 
@@ -316,7 +321,7 @@ pub const Print_Context_Options = struct {
 pub fn print_note(line_number: usize, line_number_width: u8, start_of_line: usize, span: Source_Span, writer: *std.Io.Writer, options: Print_Context_Options) !void {
     var line_number_buf: [16]u8 = undefined;
     var line_number_writer = std.Io.Writer.fixed(&line_number_buf);
-    try line_number_writer.print("{d}", .{ line_number });
+    try line_number_writer.print("{d}", .{line_number});
     const line_number_text = line_number_writer.buffered();
 
     if (options.enable_styling) {
@@ -357,7 +362,7 @@ pub fn print_source_line(source: []const u8, line: Line, line_number_width: u8, 
     if (options.line_number_style) |style| {
         var line_number_buf: [16]u8 = undefined;
         var line_number_writer = std.Io.Writer.fixed(&line_number_buf);
-        try line_number_writer.print("{d}", .{ line.num });
+        try line_number_writer.print("{d}", .{line.num});
         const line_number = line_number_writer.buffered();
 
         if (options.enable_styling) {
